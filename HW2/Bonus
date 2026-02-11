@@ -1,1 +1,300 @@
-hi
+## 1) Bias–Variance Trade-off (Regression)
+
+* **Bias**: error from overly simple assumptions (model underfits). High bias → predictions systematically off.
+* **Variance**: error from sensitivity to training data fluctuations (model overfits). High variance → unstable predictions across datasets.
+* **Trade-off**: increasing model complexity usually **decreases bias** but **increases variance**. The goal is to minimize **expected generalization error** (test error), not training error.
+* Typical pattern:
+
+  * Simple model → low variance, high bias (underfit)
+  * Very complex model → low bias, high variance (overfit)
+
+---
+
+## 2) When Kernel Regression Outperforms Linear Regression
+
+Kernel regression (non-parametric, local averaging) tends to outperform linear regression when:
+
+* The true relationship is **non-linear** and cannot be well-approximated by a linear function.
+* There are **local patterns** (different behavior in different regions of input space).
+* You have **enough data density** so local neighborhoods are meaningful.
+* Feature interactions are complex and you don’t want to hand-engineer them.
+
+Linear regression tends to win when:
+
+* Relationship is roughly linear (or linear after transformation).
+* Data is high-dimensional (kernel methods can suffer from sparsity/curse of dimensionality).
+* You need interpretability and extrapolation beyond observed ranges.
+
+---
+
+## 3) L1 vs L2 Regularization (LASSO vs Ridge)
+
+**L1 (LASSO)**:
+
+* Adds penalty: `λ * Σ |w_i|`
+* Encourages **sparsity** (many weights become exactly 0)
+* Acts like **feature selection**
+
+**L2 (Ridge)**:
+
+* Adds penalty: `λ * Σ (w_i^2)`
+* Shrinks weights smoothly toward 0 but **rarely exactly 0**
+* Stabilizes models with correlated features; improves conditioning
+
+---
+
+## 4) When Does LASSO Perform Better?
+
+LASSO is usually better when:
+
+* Only a **small subset of features** are truly important (sparse true signal).
+* You want **automatic feature selection**.
+* You can tolerate that among strongly correlated features it may pick **one arbitrarily**.
+
+---
+
+## 5) When Does Ridge Perform Better?
+
+Ridge is usually better when:
+
+* Many features contribute **a little** (non-sparse signal).
+* Features are **highly correlated** (multicollinearity): Ridge shares weight across them more stably.
+* You want better predictive stability and less variance without dropping features.
+
+---
+
+## 6) Why Does LASSO Produce Sparsity?
+
+Geometric intuition:
+
+* L1 constraint forms a **diamond-shaped** feasible region with **sharp corners** on axes.
+* The loss contours often intersect at these corners → some coefficients land exactly on an axis → **exactly zero weights**.
+  Optimization intuition:
+* The absolute value penalty has a “kink” at 0, which makes it cheaper for small weights to collapse to 0 than to stay small-but-nonzero.
+
+---
+
+## 7) Why MAPE Can Be Unreliable
+
+MAPE = mean(|y - ŷ| / |y|).
+It becomes unreliable when:
+
+* **y is near 0**: division blows up → massive/unstable errors.
+* **y can be 0**: undefined (division by zero).
+* **asymmetry**: over-forecasting and under-forecasting aren’t treated symmetrically in practical impact.
+* **scale bias**: low-valued targets dominate the metric (small denominators inflate error).
+
+Safer alternatives: **MAE**, **RMSE**, **sMAPE**, **MASE**, or using **log-scale errors** when appropriate.
+
+---
+
+## 8) Effect of Outliers on Regression Models
+
+* **Squared-loss models** (e.g., ordinary least squares) are highly sensitive because residuals are squared → large outliers dominate the objective.
+* Outliers can:
+
+  * Shift the fitted line/curve substantially
+  * Inflate variance of coefficients
+  * Distort evaluation metrics (especially RMSE)
+* Robust options:
+
+  * Use **MAE / Huber loss / quantile regression**
+  * Outlier handling: trimming/winsorizing, robust scaling, anomaly detection
+
+---
+
+## 9) Class Imbalance & Binary Metrics (Why Accuracy Misleads)
+
+With strong imbalance (e.g., 99% negatives):
+
+* A trivial model predicting “negative” always gets **99% accuracy** but is useless for detecting positives.
+  Accuracy is misleading because it ignores the distribution of errors across classes.
+
+Better focus:
+
+* **Precision, Recall, F1**
+* **PR curve / Average Precision**
+* **ROC-AUC** (can still look good even if precision is poor when positives are rare)
+* **Balanced accuracy**, **MCC**, **cost-sensitive metrics** depending on the task
+
+---
+
+## 10) How Decision Boundaries Differ Fundamentally (Bonus)
+
+* **Linear Regression / Linear Classifier**: boundary is a **hyperplane** (global, straight).
+* **Kernel methods**: boundary can be **non-linear**, shaped by similarity in transformed space.
+* **KNN**: boundary is **highly local and jagged**, driven by nearest points; can be very irregular.
+* **Decision Trees**: boundary is **axis-aligned piecewise-constant** (rectangular regions).
+* **Ensembles (RF/GBDT)**: still piecewise regions but far more flexible; approximates complex shapes via many splits.
+
+---
+
+## 11) Effect of K in KNN
+
+K controls locality vs smoothness:
+
+* **Small K (e.g., 1–3)**:
+
+  * Very flexible, low bias, **high variance**
+  * Sensitive to noise/outliers
+* **Large K**:
+
+  * Smoother boundary, higher bias, **lower variance**
+  * Can wash out minority/local structures
+    Rule of thumb: tune K via validation; scale features first.
+
+---
+
+# Decision Trees: Overfitting
+
+## 12) Why Do Decision Trees Overfit Easily?
+
+* Trees can keep splitting until leaves are nearly pure → memorizes noise.
+* High-variance model: small data changes can yield very different trees.
+* Greedy splitting can chase spurious correlations.
+
+## 13) Why Is Max Depth Not Enough?
+
+Depth alone doesn’t fully control complexity because overfitting can also come from:
+
+* Many leaves at shallow-ish depth if branching is wide
+* Very small leaves (few samples) that memorize noise
+* Splits with minimal gain repeated many times
+  You often need multiple constraints: `min_samples_leaf`, `min_samples_split`, `max_leaf_nodes`, `min_impurity_decrease`, and/or pruning.
+
+## 14) How Pruning Works
+
+Goal: reduce variance by simplifying the tree.
+
+* **Pre-pruning (early stopping)**: stop growing using constraints (depth, min leaf size, etc.).
+* **Post-pruning**: grow full tree, then remove subtrees that don’t improve validation performance.
+
+  * Cost-complexity pruning minimizes: `Loss(T) + α * |leaves(T)|`
+  * Increasing α produces smaller trees
+
+---
+
+## 15) Why Tree Models Are Good Feature Selectors
+
+* Splits choose features that yield the biggest impurity reduction / gain.
+* Uninformative features are rarely selected; informative ones appear near top splits.
+* Ensembles provide feature importance via:
+
+  * impurity-based importance (fast, but biased toward high-cardinality)
+  * permutation importance (more reliable)
+
+---
+
+# F1 Variants
+
+## 16) Micro vs Macro vs Weighted F1
+
+* **Macro F1**: average F1 across classes equally (treats each class equally).
+* **Weighted F1**: average F1 weighted by class support (frequency).
+* **Micro F1**: compute global TP/FP/FN first, then F1 (equivalent to accuracy-like aggregation for single-label multi-class).
+
+## 17) When Is Macro F1 Better?
+
+* When you care about **minority classes** as much as majority classes.
+* When class imbalance is large and you want a fairness-ish view per class.
+* When failing rare classes is costly.
+
+## 18) When Is Weighted F1 Misleading?
+
+* With heavy imbalance, it can look strong even if the model performs poorly on minority classes, because majority classes dominate the weight.
+
+## 19) Why Does Micro F1 Favor Large Classes?
+
+* Micro aggregates errors over all samples, so the majority class contributes most of the TP/FP/FN counts → performance is driven by large classes.
+
+---
+
+# Multi-label vs Multiclass
+
+## 20) Fundamental Difference
+
+* **Multiclass**: each example belongs to **exactly one** of C classes.
+* **Multi-label**: each example can belong to **multiple** classes simultaneously.
+
+## 21) Output Space
+
+* Multiclass output: one class index (or one-hot of length C).
+* Multi-label output: binary vector of length C (any subset of labels can be on).
+
+## 22) Loss Functions
+
+* Multiclass: **softmax + cross-entropy** (mutually exclusive classes).
+* Multi-label: **sigmoid per label + binary cross-entropy** (independent label probabilities).
+
+## 23) Thresholding
+
+* Multiclass: choose `argmax` (one winner).
+* Multi-label: apply threshold(s) per label (e.g., 0.5) or tune thresholds per class.
+
+## 24) Metrics
+
+* Multiclass: accuracy, macro/weighted F1, confusion matrix, etc.
+* Multi-label: subset accuracy (very strict), Hamming loss, micro/macro F1 over labels, per-label PR/AUC, example-based F1.
+
+## 25) Why KNN and Decision Trees Extend Naturally to Multi-label
+
+* **KNN**: neighbors can vote per label independently (count label frequency among neighbors).
+* **Decision Trees**:
+
+  * Leaves can store multi-label distributions (probability per label)
+  * Splitting criteria can be adapted to multi-output impurity measures
+    Both are compatible with predicting a vector of outputs instead of a single class.
+
+---
+
+# Precision / Recall
+
+## 26) Precision–Recall Trade-off
+
+* **Precision** = of predicted positives, how many are truly positive.
+* **Recall** = of true positives, how many did we find.
+  Adjusting the decision threshold:
+* Lower threshold → more predicted positives → **higher recall**, often **lower precision**
+* Higher threshold → fewer predicted positives → **higher precision**, often **lower recall**
+  Best operating point depends on costs (false positives vs false negatives).
+
+---
+
+## 27) ROC vs PR Curve
+
+* **ROC curve**: TPR (recall) vs FPR. Useful when classes are balanced; can look overly optimistic with heavy imbalance because FPR can stay small even with many false positives in absolute terms.
+* **PR curve**: precision vs recall. More informative under class imbalance because precision directly reflects false positives relative to predicted positives.
+  Rule: for rare positives, prefer **PR-AUC / Average Precision** to evaluate ranking quality.
+
+---
+
+# 28) If You Had Unlimited Time/Resources: Improving Models
+
+## Better Preprocessing
+
+* Stronger missing-value strategy (domain-aware imputation)
+* Proper scaling/normalization (critical for KNN, linear models with regularization)
+* Robust outlier handling (Huber/quantile loss, winsorizing, anomaly detection)
+* Leakage checks (time splits, group splits)
+
+## Better Features
+
+* Domain-driven feature engineering (ratios, interactions, monotonic transforms)
+* Nonlinear expansions where appropriate (splines, kernels, embeddings)
+* Feature selection + dimensionality reduction (PCA for dense continuous; target encoding with care for categoricals)
+* Better categorical handling (one-hot vs ordinal vs learned embeddings)
+
+## Better Models
+
+* Ensembles: Random Forest, Gradient Boosting (XGBoost/LightGBM/CatBoost style)
+* Calibrated probability models (Platt scaling / isotonic regression)
+* Stacking/blending with diverse learners
+* Hyperparameter optimization at scale (Bayesian optimization / large CV)
+
+## Better Metrics / Evaluation
+
+* Use metrics aligned to business cost (cost-weighted loss, asymmetric penalties)
+* For imbalance: PR-AUC, per-class recall/precision targets, MCC
+* Confidence intervals via bootstrapping
+* Robust validation: nested CV, time-aware CV, group-aware CV
+* Error analysis slices: performance by subgroup/region/segment to find systematic failures
